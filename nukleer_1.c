@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include "lnn_cekirdek.h"
 
+#define TEST_MODU 1
 
 float kaos_ihtimal(){
     float kaos = rand() % 100;
@@ -106,6 +107,26 @@ float su_seviyesi(float x){
     return su;
 }
 
+//Eklenen yeni kısım state space ile anamoli tepsiti
+/* Amaç klasik if else kontrolü yerine, sensör verilerini 5 boyutlu bir vektör uzayında analiz etmektir*/
+float anomali_hesapla(Lnn_ag *sensor_katmani){
+    //state space (vektör uzayı) deki normal bulunduğu değerlei belirliyoruz;
+    float ref_degerleri[5] = {0.20f, 0.20f, 0.10f, 0.10f, 0.20f};
+
+    float toplam_hata = 0.0f;
+
+    //her bir değişkenin o andaki değeri ile state space deki değerini çıkartıyoruz i uzaklığı yani anamoliyi bulabilelim
+    for (int i = 0; i < 5; i++){
+        float fark = sensor_katmani->noronlar[i].x - ref_degerleri[i];
+
+        //farkın karesini alıyoruz ki eksi durumlarına düşmeyelim
+        toplam_hata += fark * fark;
+    }
+
+    //ve en son yukarıda karesini aldığımız ifadenin tekrar karekökünü alarak eksiden kurtulmuş orjinal değerlere ulaşıyoruz
+    return sqrt(toplam_hata);
+}
+
 int main(){
     float dt = 0.1;
     //Sensör noronlarını yazıyoruz
@@ -149,7 +170,7 @@ int main(){
     float rastgele_su_ivme = titresim_su_ivme();
 
 
-    for(int i = 0; i < 50; i++){
+    for(int i = 0; i <= 50; i++){
 
         sicaklik = sicaklik + sicaklik_rastgele_ivme;
         if(sicaklik > 1150){
@@ -192,6 +213,15 @@ int main(){
     layer_sensor->noronlar[3].x = titresme_input;
     layer_sensor->noronlar[4].x = su_input;
 
+
+#if TEST_MODU
+    //state space mantığını anlamak için sıcaklım sensörü bozulmuş gibi siülasyon oluşturuyoruz
+    if(i >= 30){
+        if(i == 30) printf("Dikkat Sabotaj Testi Devrede  -  Sensör Koptu !!\n");
+
+        layer_sensor->noronlar[0].x = 0.0f;
+    }
+#endif
     //Nöron katmanını ateşliyoruz
     Lnn_step(layer_sensor,dt);
 
@@ -233,21 +263,27 @@ int main(){
     //Nöronu ateşliyoruz
     Lnn_step(layer_karar,dt);
 
+    float anamoli_tespit = anomali_hesapla(layer_sensor);
     if(i == 0) {
-        printf("\nADIM | SICAK   BUHAR   RADYASYON   TİTREŞİM   SU %%    || KARAR\n");
+        printf("\nADIM | SICAK   BUHAR   RADYASYON   TİTREŞİM   SU %%  || KARAR || ANOMALİ:\n");
         printf("-------------------------------------------------------------------\n");
+
     }
 
+
+
     // Verileri tek satırda yazdır
-    printf("%-4d | %-8.2f %-8.2f %-9.2f %-10.2f %-8.2f || %.5f\n",
+    printf("%-4d | %-8.2f %-8.2f %-9.2f %-10.2f %-3.2f || %.5f || %.5f\n",
            i,
            layer_sensor->noronlar[0].y,
            layer_sensor->noronlar[1].y,
            layer_sensor->noronlar[2].y,
            layer_sensor->noronlar[3].y,
            layer_sensor->noronlar[4].y,
-           layer_karar->noronlar[0].y
+           layer_karar->noronlar[0].y,
+           anamoli_tespit
     );
+
 
 
     usleep(100000);
