@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include "lnn_cekirdek.h"
 
-#define TEST_MODU 1
+#define TEST_MODU 0
 
 float kaos_ihtimal(){
     float kaos = rand() % 100;
